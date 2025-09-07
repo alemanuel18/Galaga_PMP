@@ -227,6 +227,42 @@ void showMenuScreen(bool showModes = false) {
     setColor(7); // Restaurar color
 }
 
+// Pantalla de puntajes (placeholder)
+void showScoresScreen() {
+    clearScreen();
+    drawFrame();
+    
+    setColor(11);
+    gotoxy(32, 3);
+    cout << "MEJORES PUNTAJES";
+    
+    setColor(14);
+    gotoxy(30, 4);
+    cout << "━━━━━━━━━━━━━━━━━━━━";
+    gotoxy(33, 5);
+    cout << "Datos de prueba";
+    
+    
+    setColor(15);
+    gotoxy(25, 8);
+    cout << "1. COMANDANTE ACE ........... 15,430";
+    gotoxy(25, 10);
+    cout << "2. PILOTO NOVA .............. 12,850";
+    gotoxy(25, 12);
+    cout << "3. CAPITÁN STELLAR .......... 11,200";
+    gotoxy(25, 14);
+    cout << "4. TENIENTE COSMOS .......... 9,750";
+    gotoxy(25, 16);
+    cout << "5. CADETE SPACE ............. 8,320";
+    
+    setColor(10);
+    gotoxy(24, 20);
+    cout << "Presiona cualquier tecla para regresar...";
+    
+    setColor(7);
+    getch();
+}
+
 // Función principal del programa
 int main() {
     hideCursor();

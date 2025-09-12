@@ -62,5 +62,5 @@ Pantalla de inicio:
 
  - Marcelo Detlefsen - 24554
  - Julián Divas - 24687
- - Marco Diáz - 24229
+ - Marco Díaz - 24229
  - Alejandro Jeréz - 24678

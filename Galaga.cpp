@@ -3,88 +3,153 @@
 #include <algorithm>
 #include <cstdlib>
 #include <termios.h>
+#include <fcntl.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
+#include <thread>
+#include <chrono>
+#include "Pantalla.h"
+#include "Nave.h"
 
 using namespace std;
 
-// Funciones para manipulación de consola en Linux/Unix
-void gotoxy(int x, int y) {
-    printf("\033[%d;%dH", y + 1, x + 1);
-}
+// ---------------- FUNCIONES AUXILIARES PARA LINUX ----------------
 
-void setColor(int color) {
-    // Códigos ANSI para colores
-    switch(color) {
-        case 7:  printf("\033[0m"); break;      // Normal
-        case 10: printf("\033[92m"); break;     // Verde brillante
-        case 11: printf("\033[96m"); break;     // Cyan brillante
-        case 13: printf("\033[95m"); break;     // Magenta
-        case 14: printf("\033[93m"); break;     // Amarillo brillante
-        case 15: printf("\033[97m"); break;     // Blanco brillante
-        default: printf("\033[0m"); break;     // Normal por defecto
-    }
-}
-
-void hideCursor() {
-    printf("\033[?25l");
-}
-
-void showCursor() {
-    printf("\033[?25h");
-}
-
-void clearScreen() {
-    system("clear");
-}
-
-// Función para leer tecla sin presionar Enter
-char getch() {
+// getch() versión Linux
+int getchLinux()
+{
     struct termios oldt, newt;
-    char ch;
+    int ch;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
+    newt.c_lflag &= ~(ICANON | ECHO); // sin buffer, sin eco
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
     ch = getchar();
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     return ch;
 }
 
-// Función para dibujar marco decorativo
-void drawFrame() {
+// kbhit() versión Linux
+int kbhit()
+{
+    termios oldt, newt;
+    int ch;
+    int oldf;
+
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+    ch = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    if (ch != EOF)
+    {
+        ungetc(ch, stdin);
+        return 1;
+    }
+    return 0;
+}
+
+// Mover cursor
+void gotoxy(int x, int y)
+{
+    printf("\033[%d;%dH", y + 1, x + 1);
+}
+
+// Colores ANSI
+void setColor(int color)
+{
+    switch (color)
+    {
+    case 7:
+        printf("\033[0m");
+        break; // Normal
+    case 10:
+        printf("\033[92m");
+        break; // Verde brillante
+    case 11:
+        printf("\033[96m");
+        break; // Cyan brillante
+    case 13:
+        printf("\033[95m");
+        break; // Magenta
+    case 14:
+        printf("\033[93m");
+        break; // Amarillo brillante
+    case 15:
+        printf("\033[97m");
+        break; // Blanco brillante
+    default:
+        printf("\033[0m");
+        break; // Normal
+    }
+}
+
+// Ocultar cursor
+void hideCursor()
+{
+    printf("\033[?25l");
+}
+
+// Mostrar cursor
+void showCursor()
+{
+    printf("\033[?25h");
+}
+
+// Limpiar pantalla
+void clearScreen()
+{
+    printf("\033[2J\033[H");
+}
+
+// ---------------- INTERFAZ VISUAL ----------------
+
+// Marco decorativo
+void drawFrame()
+{
     setColor(11); // Cyan brillante
     // Marco superior
     gotoxy(0, 0);
-    for(int i = 0; i < 80; i++) cout << "═";
-    
+    for (int i = 0; i < 80; i++)
+        cout << "═";
+
     // Marco inferior
     gotoxy(0, 24);
-    for(int i = 0; i < 80; i++) cout << "═";
-    
+    for (int i = 0; i < 80; i++)
+        cout << "═";
+
     // Marco lateral
-    for(int i = 1; i < 24; i++) {
+    for (int i = 1; i < 24; i++)
+    {
         gotoxy(0, i);
         cout << "║";
         gotoxy(79, i);
         cout << "║";
     }
-    
+
     // Esquinas
-    gotoxy(0, 0); cout << "╔";
-    gotoxy(79, 0); cout << "╗";
-    gotoxy(0, 24); cout << "╚";
-    gotoxy(79, 24); cout << "╝";
+    gotoxy(0, 0);
+    cout << "╔";
+    gotoxy(79, 0);
+    cout << "╗";
+    gotoxy(0, 24);
+    cout << "╚";
+    gotoxy(79, 24);
+    cout << "╝";
 }
 
-
-
 // Pantalla de inicio
-void showSplashScreen() {
+void showSplashScreen()
+{
     clearScreen();
     drawFrame();
-    
-    // Título principal GALAGA en ASCII Art
+
     setColor(15); // Blanco brillante
     gotoxy(15, 8);
     cout << "  ██████   █████  ██       █████   ██████   █████ ";
@@ -96,153 +161,31 @@ void showSplashScreen() {
     cout << " ██    ██ ██   ██ ██      ██   ██ ██    ██ ██   ██";
     gotoxy(15, 12);
     cout << "  ██████  ██   ██ ███████ ██   ██  ██████  ██   ██";
-    
-    // Texto de continuar
-    setColor(10); // Verde brillante
+
+    setColor(10);
     gotoxy(20, 18);
     cout << "Presiona cualquier tecla para continuar...";
-    
-    setColor(7); // Restaurar color
-    getch(); // Esperar entrada del usuario
+
+    setColor(7);
+    getchLinux();
 }
 
-// Función para mostrar iconos de control
-void drawControlIcons() {
-    setColor(13); // Magenta
-    
-    // Icono mover izquierda
-    gotoxy(5, 8);
-    cout << "┌─────────────┐";
-    gotoxy(5, 9);
-    cout << "│  ← Mover ←  │";
-    gotoxy(5, 10);
-    cout << "│      A      │";
-    gotoxy(5, 11);
-    cout << "└─────────────┘";
-    
-    
-    // Icono mover derecha
-    gotoxy(5, 13);
-    cout << "┌─────────────┐";
-    gotoxy(5, 14);
-    cout << "│  → Mover →  │";
-    gotoxy(5, 15);
-    cout << "│      D      │";
-    gotoxy(5, 16);
-    cout << "└─────────────┘";
-    
-    // Icono disparar
-    gotoxy(59, 8);
-    cout << "┌──────────────┐";
-    gotoxy(59, 9);
-    cout << "│ ↑ DISPARAR ↑ │";
-    gotoxy(59, 10);
-    cout << "│   [______]   │";
-    gotoxy(59, 11);
-    cout << "└──────────────┘";
-                                
-    // Nave del jugador
-    setColor(11);
-    gotoxy(60, 13);
-    cout << "     ▲";
-    gotoxy(60, 14);
-    cout << "    ╱A╲";
-    gotoxy(60, 15);
-    cout << "   ╱───╲";
-}
-
-// Función para mostrar el objetivo
-void showObjective() {
-    setColor(14); // Amarillo
-    gotoxy(27, 10);
-    cout << "┌────────────────────────┐";
-    gotoxy(27, 11);
-    cout << "│        OBJETIVO        │";
-    gotoxy(27, 12);
-    cout << "│                        │";
-    gotoxy(27, 13);
-    cout << "│  Destruye  todas  las  │";
-    gotoxy(27, 14);
-    cout << "│  naves alienígenas en  │";
-    gotoxy(27, 15);
-    cout << "│  todas  las  oleadas   │";
-    gotoxy(27, 16);
-    cout << "│  para  ganar el juego  │";
-    gotoxy(27, 17);
-    cout << "└────────────────────────┘";
-}
-
-// Función para mostrar menú principal
-void showMainMenu() {
-    setColor(15); // Blanco brillante
-    gotoxy(30, 19);
-    cout << "1. Iniciar Partida";
-    gotoxy(30, 20);
-    cout << "2. Puntajes";
-    gotoxy(30, 21);
-    cout << "3. Salir";
-}
-
-// Función para mostrar menú de modos de juego
-void showGameModes() {
-    setColor(15); // Blanco brillante
-    gotoxy(20, 19);
-    cout << "1. Modo 1: 40 alienígenas en 5 grupos de 8";
-    gotoxy(20, 20);
-    cout << "2. Modo 2: 50 alienígenas en 5 grupos de 10";
-    gotoxy(20, 21);
-    cout << "3. Modo 3: 60 alienígenas en 6 grupos de 10";
-    gotoxy(20, 22);
-    cout << "4. Regresar";
-}
-
-// Pantalla principal del menú
-void showMenuScreen(bool showModes = false) {
+// Pantalla de puntajes
+void showScoresScreen()
+{
     clearScreen();
     drawFrame();
-    
-    // Título centrado
-    setColor(11); // Cyan brillante
-    gotoxy(34, 3);
-    cout << "G A L A G A";
-    
-    // Línea decorativa bajo el título
-    setColor(14);
-    gotoxy(29, 4);
-    cout << "━━━━━━━━━━━━━━━━━━━━━";
 
-    // Mostrar controles
-    drawControlIcons();
-    
-    // Mostrar objetivo
-    showObjective();
-    
-    // Mostrar menú correspondiente
-    if(!showModes) {
-        showMainMenu();
-    } else {
-        showGameModes();
-    }
-    
-    setColor(7); // Restaurar color
-}
-
-// Pantalla de puntajes (placeholder)
-void showScoresScreen() {
-    clearScreen();
-    drawFrame();
-    
     setColor(11);
     gotoxy(32, 3);
     cout << "MEJORES PUNTAJES";
-    
+
     setColor(14);
     gotoxy(30, 4);
     cout << "━━━━━━━━━━━━━━━━━━━━";
     gotoxy(33, 5);
     cout << "Datos de prueba";
-    
-    
+
     setColor(15);
     gotoxy(25, 8);
     cout << "1. COMANDANTE ACE ........... 15,430";
@@ -254,112 +197,99 @@ void showScoresScreen() {
     cout << "4. TENIENTE COSMOS .......... 9,750";
     gotoxy(25, 16);
     cout << "5. CADETE SPACE ............. 8,320";
-    
+
     setColor(10);
     gotoxy(24, 20);
     cout << "Presiona cualquier tecla para regresar...";
-    
+
     setColor(7);
-    getch();
+    getchLinux();
 }
 
-// Función principal del programa
-int main() {
+// ---------------- GAME LOOP ----------------
+void gameLoop()
+{
+    Pantalla pantalla(80, 25);
+    Nave nave(pantalla.getAncho() / 2, pantalla.getAlto() - 2);
+
+    bool running = true;
+    while (running)
+    {
+        pantalla.limpiar();
+        nave.dibujar(pantalla);
+        pantalla.mostrar();
+
+        if (kbhit())
+        {
+            int tecla = getchLinux();
+            switch (tecla)
+            {
+            case 'a':
+            case 'A':
+                nave.moverIzquierda();
+                break;
+            case 'd':
+            case 'D':
+                nave.moverDerecha(pantalla.getAncho());
+                break;
+            case 'q':
+            case 'Q':
+                running = false;
+                break;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    }
+}
+
+// ---------------- MAIN ----------------
+int main()
+{
     hideCursor();
-    
-    // Mostrar pantalla de inicio
     showSplashScreen();
-    
-    int option = 0;
-    bool inGameModes = false;
-    
-    while(true) {
-        showMenuScreen(inGameModes);
-        
-        setColor(10); // Verde
+
+    while (true)
+    {
+        clearScreen();
+        drawFrame();
+        setColor(11);
+        gotoxy(34, 3);
+        cout << "G A L A G A";
+        setColor(14);
+        gotoxy(29, 4);
+        cout << "━━━━━━━━━━━━━━━━━━━━━";
+
+        setColor(15);
+        gotoxy(30, 19);
+        cout << "1. Iniciar Partida";
+        gotoxy(30, 20);
+        cout << "2. Puntajes";
+        gotoxy(30, 21);
+        cout << "3. Salir";
+
+        setColor(10);
         gotoxy(27, 23);
         cout << "Selecciona una opción: ";
         setColor(7);
-        
-        char choice = getch();
-        
-        if(!inGameModes) {
-            // Menú principal
-            switch(choice) {
-                case '1':
-                    inGameModes = true;
-                    break;
-                case '2':
-                    showScoresScreen();
-                    break;
-                case '3':
-                    clearScreen();
-                    gotoxy(30, 12);
-                    setColor(14);
-                    cout << "¡Gracias por jugar GALAGA!";
-                    gotoxy(0, 25);
-                    setColor(7);
-                    showCursor();
-                    return 0;
-                default:
-                    // Opción inválida, continuar en el bucle
-                    break;
-            }
-        } else {
-            // Menú de modos de juego
-            switch(choice) {
-                case '1':
-                    clearScreen();
-                    gotoxy(25, 12);
-                    setColor(11);
-                    cout << "Iniciando Modo 1: 40 alienígenas...";
-                    setColor(10);
-                    gotoxy(30, 14);
-                    cout << "¡Prepárate para la batalla!";
-                    gotoxy(25, 16);
-                    cout << "Presiona cualquier tecla para continuar...";
-                    setColor(7);
-                    getch();
-                    // Aquí iría la lógica del juego
-                    break;
-                case '2':
-                    clearScreen();
-                    gotoxy(25, 12);
-                    setColor(11);
-                    cout << "Iniciando Modo 2: 50 alienígenas...";
-                    setColor(10);
-                    gotoxy(30, 14);
-                    cout << "¡Prepárate para la batalla!";
-                    gotoxy(25, 16);
-                    cout << "Presiona cualquier tecla para continuar...";
-                    setColor(7);
-                    getch();
-                    // Aquí iría la lógica del juego
-                    break;
-                case '3':
-                    clearScreen();
-                    gotoxy(25, 12);
-                    setColor(11);
-                    cout << "Iniciando Modo 3: 60 alienígenas...";
-                    setColor(10);
-                    gotoxy(30, 14);
-                    cout << "¡Prepárate para la batalla!";
-                    gotoxy(25, 16);
-                    cout << "Presiona cualquier tecla para continuar...";
-                    setColor(7);
-                    getch();
-                    // Aquí iría la lógica del juego
-                    break;
-                case '4':
-                    inGameModes = false;
-                    break;
-                default:
-                    // Opción inválida, continuar en el bucle
-                    break;
-            }
+
+        char choice = getchLinux();
+        switch (choice)
+        {
+        case '1':
+            gameLoop();
+            break;
+        case '2':
+            showScoresScreen();
+            break;
+        case '3':
+            clearScreen();
+            gotoxy(30, 12);
+            setColor(14);
+            cout << "¡Gracias por jugar GALAGA!";
+            gotoxy(0, 25);
+            setColor(7);
+            showCursor();
+            return 0;
         }
     }
-    
-    showCursor();
-    return 0;
 }

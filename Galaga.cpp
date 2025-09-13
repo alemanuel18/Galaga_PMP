@@ -14,7 +14,8 @@
 using namespace std;
 
 // Estructura para los puntajes
-struct Score {
+struct Score
+{
     string name;
     int points;
 };
@@ -24,7 +25,6 @@ vector<Score> highScores;
 
 // ---------------- FUNCIONES AUXILIARES PARA LINUX ----------------
 
-// getch() versión Linux
 int getchLinux()
 {
     struct termios oldt, newt;
@@ -38,7 +38,6 @@ int getchLinux()
     return ch;
 }
 
-// kbhit() versión Linux
 int kbhit()
 {
     termios oldt, newt;
@@ -101,6 +100,50 @@ void setColor(int color)
         printf("\033[0m");
         break; // Normal
     }
+}
+// Función para mostrar iconos de control
+void drawControlIcons()
+{
+    setColor(13);
+    // Magenta // Icono mover izquierda
+    gotoxy(5, 8);
+    cout << "┌─────────────┐";
+    gotoxy(5, 9);
+    cout << "│  ← Mover ←  │";
+    gotoxy(5, 10);
+    cout << "│      A      │";
+    gotoxy(5, 11);
+    cout << "└─────────────┘"; // Icono mover derecha
+    gotoxy(5, 13);
+    cout << "┌─────────────┐";
+    gotoxy(5, 14);
+    cout << "│  → Mover →  │";
+    gotoxy(5, 15);
+    cout << "│     D       │";
+    gotoxy(5, 16);
+    cout << "└─────────────┘"; // Icono disparar
+    gotoxy(59, 8);
+    cout << "┌──────────────┐";
+    gotoxy(59, 9);
+    cout << "│ ↑ DISPARAR ↑ │";
+    gotoxy(59, 10);
+    cout << "│   [______]   │";
+    gotoxy(59, 11);
+    cout << "│   [ESPACIO]  │";
+    gotoxy(59, 12);
+
+    cout << "└──────────────┘"; // Nave del jugador
+    setColor(11);
+    
+    gotoxy(60, 13);
+    cout << "┌─────────────┐";
+    gotoxy(60, 14);
+    cout << "│     NAVE    │";
+    gotoxy(60, 15);
+    cout << "│      A      │";
+    gotoxy(60, 16);
+    cout << "└─────────────┘";
+  
 }
 
 // Ocultar cursor
@@ -184,52 +227,61 @@ void showSplashScreen()
 }
 
 // Función para obtener el nombre del jugador
-string getPlayerName() {
+string getPlayerName()
+{
     clearScreen();
     drawFrame();
-    
+
     setColor(14);
     gotoxy(30, 10);
     cout << "¡GAME OVER!";
-    
+
     setColor(15);
     gotoxy(25, 12);
     cout << "Ingresa tu nombre (max 15 chars): ";
-    
+
     // Mostrar cursor para escribir
     showCursor();
     setColor(10);
-    
+
     string name;
     char c;
     gotoxy(25, 14);
-    
+
     // Leer caracteres uno por uno
-    while (true) {
+    while (true)
+    {
         c = getchLinux();
-        
-        if (c == '\n' || c == '\r') { // Enter
+
+        if (c == '\n' || c == '\r')
+        { // Enter
             break;
-        } else if (c == 127 || c == 8) { // Backspace
-            if (name.length() > 0) {
+        }
+        else if (c == 127 || c == 8)
+        { // Backspace
+            if (name.length() > 0)
+            {
                 name.pop_back();
                 gotoxy(25, 14);
                 cout << string(20, ' '); // Limpiar línea
                 gotoxy(25, 14);
                 cout << name;
             }
-        } else if (c >= 32 && c <= 126 && name.length() < 15) { // Caracteres imprimibles
+        }
+        else if (c >= 32 && c <= 126 && name.length() < 15)
+        { // Caracteres imprimibles
             name += c;
             cout << c;
         }
     }
-    
+
     hideCursor();
-    
-    if (name.empty()) {
+
+    if (name.empty())
+    {
         name = "ANONIMO";
     }
-    
+
     return name;
 }
 
@@ -248,25 +300,30 @@ void showScoresScreen()
     cout << "━━━━━━━━━━━━━━━━━━━━";
 
     setColor(15);
-    
-    if (highScores.empty()) {
+
+    if (highScores.empty())
+    {
         gotoxy(30, 12);
         cout << "No hay puntajes aún";
-    } else {
+    }
+    else
+    {
         // Ordenar puntajes de mayor a menor
-        sort(highScores.begin(), highScores.end(), 
-             [](const Score& a, const Score& b) { return a.points > b.points; });
-        
+        sort(highScores.begin(), highScores.end(),
+             [](const Score &a, const Score &b)
+             { return a.points > b.points; });
+
         int y = 7;
-        for (int i = 0; i < min(10, (int)highScores.size()); i++) {
+        for (int i = 0; i < min(10, (int)highScores.size()); i++)
+        {
             gotoxy(20, y);
             cout << (i + 1) << ". " << highScores[i].name;
-            
+
             // Puntos alineados a la derecha
             string pointsStr = to_string(highScores[i].points);
             gotoxy(60 - pointsStr.length(), y);
             cout << pointsStr;
-            
+
             y += 2;
         }
     }
@@ -284,11 +341,11 @@ void gameLoop()
 {
     clearScreen();
     drawFrame();
-    
+
     setColor(15);
     gotoxy(30, 8);
     cout << "SIMULADOR GALAGA";
-    
+
     setColor(14);
     gotoxy(20, 12);
     cout << "S - Sumar puntos (+100)";
@@ -296,13 +353,13 @@ void gameLoop()
     cout << "M - Morir (terminar juego)";
     gotoxy(20, 16);
     cout << "Q - Salir sin puntaje";
-    
+
     setColor(10);
     gotoxy(25, 20);
     cout << "Presiona una tecla para comenzar...";
-    
+
     getchLinux(); // Esperar tecla para empezar
-    
+
     int score = 0;
     bool gameRunning = true;
 
@@ -310,11 +367,11 @@ void gameLoop()
     {
         clearScreen();
         drawFrame();
-        
+
         setColor(15);
         gotoxy(30, 8);
         cout << "PUNTAJE: " << score;
-        
+
         setColor(14);
         gotoxy(20, 12);
         cout << "S - Sumar puntos (+100)";
@@ -332,11 +389,12 @@ void gameLoop()
             case 'S':
                 score += 100;
                 break;
-                
+
             case 'm':
             case 'M':
                 // Terminar juego y pedir nombre
-                if (score > 0) {
+                if (score > 0)
+                {
                     string playerName = getPlayerName();
                     Score newScore;
                     newScore.name = playerName;
@@ -346,20 +404,21 @@ void gameLoop()
                 }
                 gameRunning = false;
                 break;
-                
+
             case 'q':
             case 'Q':
                 gameRunning = false;
                 break;
             }
         }
-        
+
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
 // Función para mostrar la nave en el menú
-void showMenu() {
+void showMenu()
+{
     Pantalla pantalla(80, 25);
     Nave nave(pantalla.getAncho() / 2, 15); // Posición más arriba para el menú
 
@@ -367,7 +426,7 @@ void showMenu() {
     {
         clearScreen();
         drawFrame();
-        
+
         // Título
         setColor(11);
         gotoxy(34, 3);
@@ -375,7 +434,7 @@ void showMenu() {
         setColor(14);
         gotoxy(29, 4);
         cout << "━━━━━━━━━━━━━━━━━━━━━";
-
+        drawControlIcons();
         // Opciones del menú
         setColor(15);
         gotoxy(30, 19);

@@ -10,6 +10,7 @@
 #include <string>
 #include "Pantalla.h"
 #include "Nave.h"
+#include "Enemigo.h"
 
 using namespace std;
 
@@ -337,165 +338,249 @@ void showScoresScreen()
 }
 
 // ---------------- GAME LOOP  ----------------
-void gameLoop()
+void gameScreen()
 {
+    // Variables del juego
+    bool gameRunning = true;
+    int score = 0;
+    int naveX = 40;
+    int naveY = 20;
+
+    
+    // Posiciones de enemigos
+    vector<pair<int, int>> enemigos = {
+        {15, 8}, {20, 8}, {25, 8}, {30, 8}, {35, 8}, {40, 8}, {45, 8}, {50, 8}, {55, 8}
+    };
+
+    // Controlar flujo de la partida
+    bool inGame = false;
+
     clearScreen();
     drawFrame();
+    hideCursor();
 
     setColor(15);
     gotoxy(30, 8);
-    cout << "SIMULADOR GALAGA";
+    cout << "GALAGA - MODO JUEGO";
 
     setColor(14);
-    gotoxy(20, 12);
-    cout << "S - Sumar puntos (+100)";
-    gotoxy(20, 14);
-    cout << "M - Morir (terminar juego)";
-    gotoxy(20, 16);
-    cout << "Q - Salir sin puntaje";
+    gotoxy(15, 12);
+    cout << "ESPACIO - Disparar y ganar puntos (+100)";
+    gotoxy(15, 14);
+    cout << "A/D - Mover nave";
+    gotoxy(15, 16);
+    cout << "M - Terminar partida y guardar puntaje";
+    gotoxy(15, 18);
+    cout << "Q - Salir sin guardar";
 
     setColor(10);
-    gotoxy(25, 20);
-    cout << "Presiona una tecla para comenzar...";
+    gotoxy(20, 21);
+    cout << "Presiona cualquier tecla para comenzar...";
 
-    getchLinux(); // Esperar tecla para empezar
-
-    int score = 0;
-    bool gameRunning = true;
+    getchLinux();
+    inGame = true;
 
     while (gameRunning)
     {
-        clearScreen();
-        drawFrame();
+        if (inGame) {
+            // Pantalla de juego activa con nave y enemigos
+            clearScreen();
+            drawFrame();
+            
+            setColor(15);
+            gotoxy(25, 1);
+            cout << "GALAGA - PUNTAJE: " << score;
+            
+            setColor(14);
+            gotoxy(2, 1);
+            cout << "VIDAS: ♥♥♥";
 
-        setColor(15);
-        gotoxy(30, 8);
-        cout << "PUNTAJE: " << score;
+            // Crear enemigos
+            setColor(12);
+            for (auto &enemigo : enemigos) {
+                gotoxy(enemigo.first, enemigo.second);
+                cout << "X";
+            }
 
-        setColor(14);
-        gotoxy(20, 12);
-        cout << "S - Sumar puntos (+100)";
-        gotoxy(20, 14);
-        cout << "M - Morir (terminar juego)";
-        gotoxy(20, 16);
-        cout << "Q - Salir sin puntaje";
+            //Ubicar nave
+            setColor(10);
+            gotoxy(naveX, naveY);
+            cout << "A";
 
-        if (kbhit())
-        {
+            // Instrucciones de juego
+            setColor(11);
+            gotoxy(2, 22);
+            cout << "A/D: Mover - ESPACIO: Disparar - M: Terminar - Q: Salir - ";
+            
+            setColor(7);
+
+        } else {
+            clearScreen();
+            drawFrame();
+
+            setColor(15);
+            gotoxy(30, 8);
+            cout << "PUNTAJE ACTUAL: " << score;
+
+            setColor(14);
+            gotoxy(20, 12);
+            cout << "ESPACIO - Continuar jugando";
+            gotoxy(20, 14);
+            cout << "M - Terminar y guardar puntaje";
+            gotoxy(20, 16);
+            cout << "Q - Salir sin guardar";
+        }
+
+        // Manejo de controles
+        if (kbhit()) {
             int tecla = getchLinux();
-            switch (tecla)
-            {
-            case 's':
-            case 'S':
-                score += 100;
-                break;
-
-            case 'm':
-            case 'M':
-                // Terminar juego y pedir nombre
-                if (score > 0)
-                {
-                    string playerName = getPlayerName();
-                    Score newScore;
-                    newScore.name = playerName;
-                    newScore.points = score;
-                    highScores.push_back(newScore);
-                    showScoresScreen();
+            
+            if (inGame) {
+                switch (tecla) {
+                    case 'a': case 'A':
+                        if (naveX > 2) naveX--;
+                        break;
+                    case 'd': case 'D':
+                        if (naveX < 77) naveX++;
+                        break;
+                    case ' ': // Disparar
+                        score += 100;
+                        break;
+                    case 'm': case 'M':
+                        // Terminar juego y guardar
+                        if (score > 0) {
+                            string playerName = getPlayerName();
+                            Score newScore;
+                            newScore.name = playerName;
+                            newScore.points = score;
+                            highScores.push_back(newScore);
+                            showScoresScreen();
+                        }
+                        gameRunning = false;
+                        break;
+                    case 'q': case 'Q':
+                        gameRunning = false;
+                        break;
+                    case 'p': case 'P':
+                        inGame = false;
+                        break;
                 }
-                gameRunning = false;
-                break;
-
-            case 'q':
-            case 'Q':
-                gameRunning = false;
-                break;
+            } else {
+                // Controles en pausa
+                switch (tecla) {
+                    case ' ': // Continuar
+                        inGame = true;
+                        break;
+                    case 'm': case 'M':
+                        // Guardar y salir
+                        if (score > 0) {
+                            string playerName = getPlayerName();
+                            Score newScore;
+                            newScore.name = playerName;
+                            newScore.points = score;
+                            highScores.push_back(newScore);
+                            showScoresScreen();
+                        }
+                        gameRunning = false;
+                        break;
+                    case 'q': case 'Q':
+                        gameRunning = false;
+                        break;
+                }
             }
         }
 
+        // Evitar parpadeo
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
 // Función para mostrar la nave en el menú
-void showMenu()
-{
+int showMenu(){
     Pantalla pantalla(80, 25);
-    Nave nave(pantalla.getAncho() / 2, 15); // Posición más arriba para el menú
+    Nave nave(pantalla.getAncho() / 2, 15);
+    int lastNaveX = nave.getX(); // Guardar posición anterior
+    bool needRedraw = true;      // Flag para controlar cuándo redibujar
 
     while (true)
     {
-        clearScreen();
-        drawFrame();
+        // Solo redibujar si es necesario
+        if (needRedraw || nave.getX() != lastNaveX) {
+            clearScreen();
+            drawFrame();
+            setColor(11);
+            gotoxy(34, 3);
+            cout << "G A L A G A";
+            setColor(14);
+            gotoxy(29, 4);
+            cout << "━━━━━━━━━━━━━━━━━━━━━";
+            drawControlIcons();
 
-        // Título
-        setColor(11);
-        gotoxy(34, 3);
-        cout << "G A L A G A";
-        setColor(14);
-        gotoxy(29, 4);
-        cout << "━━━━━━━━━━━━━━━━━━━━━";
-        drawControlIcons();
-        // Opciones del menú
-        setColor(15);
-        gotoxy(30, 19);
-        cout << "1. Iniciar Partida";
-        gotoxy(30, 20);
-        cout << "2. Puntajes";
-        gotoxy(30, 21);
-        cout << "3. Salir";
+            setColor(15);
+            gotoxy(30, 19); cout << "1. Iniciar Partida";
+            gotoxy(30, 20); cout << "2. Puntajes";
+            gotoxy(30, 21); cout << "3. Salir";
 
-        setColor(10);
-        gotoxy(25, 23);
-        cout << "A/D para mover nave - Número para seleccionar";
-        setColor(7);
+            setColor(10);
+            gotoxy(25, 23);
+            cout << "A/D para mover nave - Número para seleccionar";
+            
+            // Dibujar nave
+            setColor(10);
+            gotoxy(nave.getX(), nave.getY());
+            cout << "A";
+            
+            setColor(7);
+            
+            lastNaveX = nave.getX();
+            needRedraw = false;
+        }
 
-        // Dibujar la nave
-        setColor(10);
-        gotoxy(nave.getX(), nave.getY());
-        cout << "A";
-
-        if (kbhit())
-        {
+        if (kbhit()){
             int tecla = getchLinux();
-            switch (tecla)
-            {
-            case 'a':
-            case 'A':
-                nave.moverIzquierda();
+            switch (tecla){
+            case 'a': case 'A': 
+                nave.moverIzquierda(); 
+                needRedraw = true; // Marcar para redibujar
                 break;
-            case 'd':
-            case 'D':
-                nave.moverDerecha(pantalla.getAncho());
+            case 'd': case 'D': 
+                nave.moverDerecha(pantalla.getAncho()); 
+                needRedraw = true; // Marcar para redibujar
                 break;
-            case '1':
-                return; // Salir al gameLoop
-            case '2':
-                showScoresScreen();
-                break;
-            case '3':
-                clearScreen();
-                gotoxy(30, 12);
-                setColor(14);
-                cout << "¡Gracias por jugar GALAGA!";
-                gotoxy(0, 25);
-                setColor(7);
-                showCursor();
-                exit(0);
+            case '1': return 1;
+            case '2': return 2;
+            case '3': return 3;
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(80));
+        
+        // Pausa más larga ya que no necesitamos redibujar constantemente
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 }
 
+
 // ---------------- MAIN ----------------
-int main()
-{
+int main(){
     hideCursor();
     showSplashScreen();
 
-    while (true)
-    {
-        showMenu();
-        gameLoop(); // Solo se ejecuta cuando se presiona '1'
+    while (true){
+        int opcion = showMenu();
+        if (opcion == 1){
+            gameScreen();
+        }
+        else if (opcion == 2){
+            showScoresScreen();
+        }
+        else if (opcion == 3){
+            clearScreen();
+            gotoxy(30, 12);
+            setColor(14);
+            cout << "¡Gracias por jugar GALAGA!";
+            gotoxy(0, 25);
+            setColor(7);
+            showCursor();
+            exit(0);
+        }
     }
 }

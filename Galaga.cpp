@@ -364,14 +364,17 @@ void gameScreen()
     cout << "GALAGA - MODO JUEGO";
 
     setColor(14);
-    gotoxy(15, 12);
+    gotoxy(15, 10);
     cout << "ESPACIO - Disparar y ganar puntos (+100)";
-    gotoxy(15, 14);
+    gotoxy(15, 12);
     cout << "A/D - Mover nave";
-    gotoxy(15, 16);
+    gotoxy(15, 14);
     cout << "M - Terminar partida y guardar puntaje";
+    gotoxy(15, 16);
+    cout << "Q - Salir sin guardar.";
     gotoxy(15, 18);
-    cout << "Q - Salir sin guardar";
+    cout << "Destruye todas las naves!!!";
+
 
     setColor(10);
     gotoxy(20, 21);
@@ -380,7 +383,7 @@ void gameScreen()
     getchLinux();
     inGame = true;
 
-    while (gameRunning)
+    while (gameRunning) 
     {
         if (inGame) {
             // Pantalla de juego activa con nave y enemigos
@@ -410,7 +413,9 @@ void gameScreen()
             // Instrucciones de juego
             setColor(11);
             gotoxy(2, 22);
-            cout << "A/D: Mover - ESPACIO: Disparar - M: Terminar - Q: Salir - ";
+            cout << "A/D: Mover - ESPACIO: Disparar - M: Terminar - Q: Salir ";
+            gotoxy(2, 23);
+            cout << "Destruye todas las naves!!!";
             
             setColor(7);
 
@@ -517,12 +522,14 @@ int showMenu(){
             drawControlIcons();
 
             setColor(15);
-            gotoxy(30, 19); cout << "1. Iniciar Partida";
-            gotoxy(30, 20); cout << "2. Puntajes";
-            gotoxy(30, 21); cout << "3. Salir";
+            gotoxy(26, 17); cout << "1. Iniciar Partida dificultad 1";
+            gotoxy(26, 18); cout << "2. Iniciar Partida dificultad 2";
+            gotoxy(26, 19); cout << "3. Iniciar Partida dificultad 3";
+            gotoxy(26, 20); cout << "4. Puntajes";
+            gotoxy(26, 21); cout << "5. Salir";
 
             setColor(10);
-            gotoxy(25, 23);
+            gotoxy(23, 23);
             cout << "A/D para mover nave - Número para seleccionar";
             
             // Dibujar nave
@@ -550,6 +557,8 @@ int showMenu(){
             case '1': return 1;
             case '2': return 2;
             case '3': return 3;
+            case '4': return 4;
+            case '5': return 5;
             }
         }
         
@@ -570,9 +579,15 @@ int main(){
             gameScreen();
         }
         else if (opcion == 2){
-            showScoresScreen();
+            gameScreen();
         }
         else if (opcion == 3){
+            gameScreen();
+        }
+        else if (opcion == 4){
+            showScoresScreen();
+        }
+        else if (opcion == 6){
             clearScreen();
             gotoxy(30, 12);
             setColor(14);

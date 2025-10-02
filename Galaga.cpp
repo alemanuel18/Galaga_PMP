@@ -12,6 +12,7 @@
 #include "Nave.h"
 #include "Enemigo.h"
 #include <pthread.h>
+#include <fstream>
 
 using namespace std;
 
@@ -333,8 +334,61 @@ string getPlayerName(bool isVictory = false)
 }
 
 // --------------------- PANTALLA DE PUNTAJES ----------------
-void showScoresScreen()
-{
+// Nombre del archivo de puntajes
+const string SCORES_FILE = "galaga_scores.dat";
+
+// Función para guardar puntajes en archivo
+void saveScores() {
+    ofstream file(SCORES_FILE);
+    if (!file.is_open()) {
+        cerr << "Error: No se pudo guardar los puntajes" << endl;
+        return;
+    }
+    
+    // Ordenar puntajes antes de guardar
+    sort(highScores.begin(), highScores.end(),
+         [](const Score &a, const Score &b) { 
+             return a.points > b.points; 
+         });
+    
+    // Guardar solo los mejores 10 puntajes
+    int count = min(10, (int)highScores.size());
+    for (int i = 0; i < count; i++) {
+        file << highScores[i].points << " " << highScores[i].name << endl;
+    }
+    
+    file.close();
+}
+
+// Función para cargar puntajes desde archivo
+void loadScores() {
+    ifstream file(SCORES_FILE);
+    if (!file.is_open()) {
+        // Si el archivo no existe, no hay problema
+        return;
+    }
+    
+    highScores.clear();
+    
+    string name;
+    int points;
+    
+    while (file >> points) {
+        file.ignore(); // Ignorar el espacio o salto de línea
+        getline(file, name);
+        
+        if (!name.empty()) {
+            highScores.push_back({name, points});
+            saveScores();
+        }
+    }
+    
+    file.close();
+}
+
+void showScoresScreen() {
+    loadScores(); // Cargar puntajes al mostrar la pantalla
+    
     clearScreen();
     drawFrame();
 
@@ -344,25 +398,22 @@ void showScoresScreen()
 
     setColor(14);
     gotoxy(30, 4);
-    cout << "━━━━━━━━━━━━━━━━━━━━";
+    cout << "────────────────────";
 
     setColor(15);
 
-    if (highScores.empty())
-    {
+    if (highScores.empty()) {
         gotoxy(30, 12);
         cout << "No hay puntajes aún";
-    }
-    else
-    {
+    } else {
         // Ordenar puntajes de mayor a menor
         sort(highScores.begin(), highScores.end(),
-             [](const Score &a, const Score &b)
-             { return a.points > b.points; });
+             [](const Score &a, const Score &b) { 
+                 return a.points > b.points; 
+             });
 
         int y = 7;
-        for (int i = 0; i < min(10, (int)highScores.size()); i++)
-        {
+        for (int i = 0; i < min(10, (int)highScores.size()); i++) {
             gotoxy(20, y);
             cout << (i + 1) << ". " << highScores[i].name;
 
@@ -1110,6 +1161,7 @@ void runGame(int enemyCount, int wavesToWin)
                     sleep(4);
                     string playerName = getPlayerName(true);
                     highScores.push_back({playerName, score});
+                    saveScores();
                     showScoresScreen();
                     gameRunning = false;
                     pthread_mutex_destroy(&playerMutex);
@@ -1141,6 +1193,7 @@ void runGame(int enemyCount, int wavesToWin)
                     {
                         string playerName = getPlayerName();
                         highScores.push_back({playerName, score});
+                        saveScores();
                         showScoresScreen();
                     }
                     gameRunning = false;
@@ -1171,6 +1224,7 @@ void runGame(int enemyCount, int wavesToWin)
                     {
                         string playerName = getPlayerName();
                         highScores.push_back({playerName, score});
+                        saveScores();
                         showScoresScreen();
                     }
                     gameRunning = false;
@@ -1201,6 +1255,7 @@ void runGame(int enemyCount, int wavesToWin)
                 {
                     string playerName = getPlayerName();
                     highScores.push_back({playerName, score});
+                    saveScores();
                     showScoresScreen();
                 }
                 gameRunning = false;
@@ -1277,6 +1332,7 @@ void runGame(int enemyCount, int wavesToWin)
                     {
                         string playerName = getPlayerName();
                         highScores.push_back({playerName, score});
+                        saveScores();
                         showScoresScreen();
                     }
                     gameRunning = false;
@@ -1339,6 +1395,7 @@ void runGame(int enemyCount, int wavesToWin)
                     {
                         string playerName = getPlayerName();
                         highScores.push_back({playerName, score});
+                        saveScores();
                         showScoresScreen();
                     }
                     gameRunning = false;

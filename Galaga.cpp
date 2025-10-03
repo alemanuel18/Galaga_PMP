@@ -1505,7 +1505,7 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
             }
 
             setColor(7);
-            gotoxy(46, 1);
+            gotoxy(43, 1);
             if (bossMode)
             {
                 cout << "JEFE MISTERIOSO";
@@ -1950,19 +1950,19 @@ void showMainMenu()
             gotoxy(34, 5);
             cout << "CREDITOS";
             setColor(11);
-            gotoxy(28, 10);
+            gotoxy(22, 10);
             cout << "Desarrollado por: ";
-            gotoxy(28, 11);
-            cout << "Marco Díaz";
-            gotoxy(28, 12);
+            gotoxy(40, 11);
             cout << "Marcelo Detlefsen";
-            gotoxy(28, 13);
+            gotoxy(40, 12);
             cout << "Alejandro Jerez";
-            gotoxy(28, 14);
+            gotoxy(40, 13);
             cout << "Julián Divas";
-            gotoxy(28, 15);
+            gotoxy(40, 14);
+            cout << "Marco Díaz";
+            gotoxy(22, 15);
             cout << "Curso: Programacion de microprocesadores";
-            gotoxy(28, 16);
+            gotoxy(22, 16);
             cout << "Universidad del Valle de Guatemala";
             setColor(10);
             gotoxy(22, 22);

@@ -351,7 +351,7 @@ void loadScores() {
 }
 
 void showScoresScreen() {
-    loadScores(); // Cargar puntajes al mostrar la pantalla
+    loadScores();
     
     clearScreen();
     drawFrame();
@@ -368,24 +368,35 @@ void showScoresScreen() {
         gotoxy(30, 12);
         cout << "No hay puntajes aún";
     } else {
-        // Ordenar puntajes de mayor a menor
         sort(highScores.begin(), highScores.end(),
              [](const Score &a, const Score &b) { 
                  return a.points > b.points; 
              });
 
-        int y = 7;
-        for (int i = 0; i < min(10, (int)highScores.size()); i++) {
-            gotoxy(20, y);
-            cout << (i + 1) << ". " << highScores[i].name;
+        int y = 6;  // Empezar más arriba
+        int maxDisplay = min(10, (int)highScores.size());
+        
+        for (int i = 0; i < maxDisplay; i++) {
+            gotoxy(25, y);  // Posición X ajustada
+            cout << (i + 1) << ". ";
+            
+            // Limitar nombre a 12 caracteres
+            string displayName = highScores[i].name;
+            if (displayName.length() > 12) {
+                displayName = displayName.substr(0, 12);
+            }
+            cout << displayName;
+            
+            // Alinear puntajes a la derecha
             string pointsStr = to_string(highScores[i].points);
-            gotoxy(60 - pointsStr.length(), y);
+            gotoxy(52, y);  // Posición fija para puntajes
             cout << pointsStr;
-            y += 2;
+            
+            y++;  // Incrementar de 1 en 1 en lugar de 2
         }
     }
     setColor(10);
-    gotoxy(24, 22);
+    gotoxy(24, 21);  // Ajustar posición del mensaje
     cout << "Presiona cualquier tecla para regresar...";
     setColor(7);
     getchLinux();
@@ -1293,7 +1304,7 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                         enemySystem.createEnemies(enemyCount);
                     }
                 }
-                
+
                 // Colisión directa con la nave
                 if (enemySystem.checkCollisionWithPlayer(naveX, naveY))
                 {
@@ -1624,7 +1635,7 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                 }
             }
         }
-    this_thread::sleep_for(chrono::milliseconds(50));
+    this_thread::sleep_for(chrono::milliseconds(30));
     }
 }
 

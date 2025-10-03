@@ -938,10 +938,6 @@ void showLifeLostEffect(int naveX, int naveY, int vidasRestantes)
 }
 
 // ---------------- MÚSICA ----------------
-// Variables globales para la música
-pid_t musicPid = -1;
-string currentMusicFile = "";
-
 // Estructura para almacenar las rutas de música por dificultad
 struct MusicConfig {
     string modo1 = "music/modo1.mp3";  // Música para modo fácil
@@ -953,16 +949,21 @@ struct MusicConfig {
 
 MusicConfig musicConfig;
 
+// Variable para almacenar el ID del proceso de música actual
+pid_t musicProcess = -1;
+
 // Función para detener la música actual
 void stopMusic() {
-    if (musicPid > 0) {
-        kill(musicPid, SIGTERM);
-        waitpid(musicPid, NULL, 0);
-        musicPid = -1;
+    if (musicProcess > 0) {
+        kill(musicProcess, SIGTERM);
+        waitpid(musicProcess, NULL, 0);
+        musicProcess = -1;
     }
+    // Detener cualquier proceso de música residual
+    system("pkill -f mpg123");
 }
 
-// Función para reproducir música en loop
+// Función para reproducir música en el hilo principal
 void playMusic(const string& filename) {
     // Detener música anterior si existe
     stopMusic();
@@ -975,34 +976,19 @@ void playMusic(const string& filename) {
     }
     file.close();
     
-    currentMusicFile = filename;
+    // Ejecutar mpg123 en segundo plano
+    string command = "mpg123 -q --loop -1 " + filename + " &";
+    system(command.c_str());
     
-    // Crear proceso hijo para reproducir música
-    musicPid = fork();
-    
-    if (musicPid == 0) {
-        // Proceso hijo: reproducir música en loop infinito
-        // Redirigir stderr y stdout a /dev/null para evitar mensajes
-        freopen("/dev/null", "w", stdout);
-        freopen("/dev/null", "w", stderr);
-        
-        // Intentar con mpg123 primero (mejor para MP3)
-        while (true) {
-            execlp("mpg123", "mpg123", "-q", filename.c_str(), NULL);
-            
-            // Si mpg123 no está disponible, intentar con ffplay
-            execlp("ffplay", "ffplay", "-nodisp", "-autoexit", "-loop", "0", 
-                   filename.c_str(), NULL);
-            
-            // Si ffplay tampoco está, intentar con cvlc
-            execlp("cvlc", "cvlc", "--play-and-exit", "--loop", 
-                   filename.c_str(), NULL);
-            
-            // Si nada funciona, salir
-            exit(1);
+    // Obtener el PID del proceso recién creado
+    sleep(1); // Dar tiempo para que el proceso inicie
+    FILE *fp = popen("pgrep -f mpg123", "r");
+    if (fp) {
+        char pid_str[16];
+        if (fgets(pid_str, sizeof(pid_str), fp) != NULL) {
+            musicProcess = atoi(pid_str);
         }
-    } else if (musicPid < 0) {
-        cerr << "Error: No se pudo crear proceso para música" << endl;
+        pclose(fp);
     }
 }
 
@@ -1045,6 +1031,7 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
     if (pthread_create(&playerThreadHandle, NULL, &playerThread, &playerData) != 0) {
         cerr << "Error creando hilo del jugador" << endl;
         stopMusic();
+        pthread_mutex_destroy(&playerMutex);
         return;
     }
 
@@ -1078,6 +1065,7 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
             cerr << "Error creando hilo del jefe" << endl;
             delete boss;
             delete bossData;
+            pthread_join(playerThreadHandle, NULL);
             pthread_mutex_destroy(&playerMutex);
             stopMusic();
             return;
@@ -1145,20 +1133,25 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                     boss->destroy();
                     for (auto thread : escortThreads)
                     {
-                        pthread_join(thread, NULL);
+                        if (thread != 0)
+                            pthread_join(thread, NULL);
                     }
                     if (bossThreadHandle != 0) {
                         pthread_join(bossThreadHandle, NULL);
                     }
 
                     for (auto data : escortData)
-                        delete data;
+                        if (data) delete data;
                     escortData.clear();
                     escortThreads.clear();
-                    delete bossData;
-                    delete boss;
-                    boss = nullptr;
-                    bossData = nullptr;
+                    if (bossData) {
+                        delete bossData;
+                        bossData = nullptr;
+                    }
+                    if (boss) {
+                        delete boss;
+                        boss = nullptr;
+                    }
 
                     setColor(10);
                     gotoxy(28, 12);
@@ -1197,33 +1190,41 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                     showScoresScreen();
 
                     pthread_mutex_destroy(&playerMutex);
+                    stopMusic();
                     return;
                 }
-                if (boss->checkShotCollision(naveX, naveY))
+
+                if (boss && boss->checkShotCollision(naveX, naveY))
                 {
                     vidas--;
                     
                     if (vidas <= 0)
                     {
-                        for (auto thread : escortThreads)
-                        {
-                            pthread_join(thread, NULL);
-                        }
-                        if (bossThreadHandle != 0) {
-                            pthread_join(bossThreadHandle, NULL);
-                        }
-
-                        gameRunning = false;
                         inGame = false;
                         pthread_join(playerThreadHandle, NULL);
 
-                        for (auto data : escortData)
-                            delete data;
-                        escortData.clear();
-                        escortThreads.clear();
-                        delete bossData;
-                        delete boss;
-                        boss = nullptr;
+                        if (boss) {
+                            boss->destroy();
+                            for (auto thread : escortThreads)
+                            {
+                                if (thread != 0)
+                                    pthread_join(thread, NULL);
+                            }
+                            if (bossThreadHandle != 0) {
+                                pthread_join(bossThreadHandle, NULL);
+                            }
+
+                            for (auto data : escortData)
+                                if (data) delete data;
+                            escortData.clear();
+                            escortThreads.clear();
+                            if (bossData) {
+                                delete bossData;
+                                bossData = nullptr;
+                            }
+                            delete boss;
+                            boss = nullptr;
+                        }
 
                         setColor(12);
                         gotoxy(30, 12);
@@ -1242,6 +1243,8 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                         }
 
                         pthread_mutex_destroy(&playerMutex);
+                        gameRunning = false;
+                        stopMusic();
                         return;
                     }
                     else
@@ -1250,28 +1253,34 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                     }
                 }
 
-                if (boss->checkBossCollision(naveX, naveY))
+                if (boss && boss->checkBossCollision(naveX, naveY))
                 {
                     vidas = 0;
-                    for (auto thread : escortThreads)
-                    {
-                        pthread_join(thread, NULL);
-                    }
-                    if (bossThreadHandle != 0) {
-                        pthread_join(bossThreadHandle, NULL);
-                    }
-                    
-                    gameRunning = false;
                     inGame = false;
                     pthread_join(playerThreadHandle, NULL);
 
-                    for (auto data : escortData)
-                        delete data;
-                    escortData.clear();
-                    escortThreads.clear();
-                    delete bossData;
-                    delete boss;
-                    boss = nullptr;
+                    if (boss) {
+                        boss->destroy();
+                        for (auto thread : escortThreads)
+                        {
+                            if (thread != 0)
+                                pthread_join(thread, NULL);
+                        }
+                        if (bossThreadHandle != 0) {
+                            pthread_join(bossThreadHandle, NULL);
+                        }
+
+                        for (auto data : escortData)
+                            if (data) delete data;
+                        escortData.clear();
+                        escortThreads.clear();
+                        if (bossData) {
+                            delete bossData;
+                            bossData = nullptr;
+                        }
+                        delete boss;
+                        boss = nullptr;
+                    }
 
                     setColor(12);
                     gotoxy(28, 12);
@@ -1290,6 +1299,8 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                     }
 
                     pthread_mutex_destroy(&playerMutex);
+                    gameRunning = false;
+                    stopMusic();
                     return;
                 }
             }
@@ -1358,6 +1369,7 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                     showScoresScreen();
 
                     pthread_mutex_destroy(&playerMutex);
+                    stopMusic();
                     return;
                 }
 
@@ -1385,7 +1397,8 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                         }
                         gameRunning = false;
                         pthread_mutex_destroy(&playerMutex);
-                        continue;
+                        stopMusic();
+                        return;
                     }
                     else
                     {
@@ -1416,7 +1429,8 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                         }
                         gameRunning = false;
                         pthread_mutex_destroy(&playerMutex);
-                        continue;
+                        stopMusic();
+                        return;
                     }
                     else
                     {
@@ -1446,7 +1460,8 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                     }
                     gameRunning = false;
                     pthread_mutex_destroy(&playerMutex);
-                    continue;
+                    stopMusic();
+                    return;
                 }
             }
 
@@ -1542,12 +1557,27 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
 
                     if (bossMode && boss)
                     {
+                        boss->destroy();
                         for (auto thread : escortThreads)
                         {
-                            pthread_join(thread, NULL);
+                            if (thread != 0)
+                                pthread_join(thread, NULL);
                         }
                         if (bossThreadHandle != 0) {
                             pthread_join(bossThreadHandle, NULL);
+                        }
+
+                        for (auto data : escortData)
+                            if (data) delete data;
+                        escortData.clear();
+                        escortThreads.clear();
+                        if (bossData) {
+                            delete bossData;
+                            bossData = nullptr;
+                        }
+                        if (boss) {
+                            delete boss;
+                            boss = nullptr;
                         }
                     }
 
@@ -1559,15 +1589,8 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                         showScoresScreen();
                     }
                     gameRunning = false;
-
-                    if (bossMode && boss)
-                    {
-                        for (auto data : escortData)
-                            delete data;
-                        delete bossData;
-                        delete boss;
-                    }
                     pthread_mutex_destroy(&playerMutex);
+                    stopMusic();
                 }
                 else if (tecla == 'q' || tecla == 'Q')
                 {
@@ -1576,25 +1599,33 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
 
                     if (bossMode && boss)
                     {
+                        boss->destroy();
                         for (auto thread : escortThreads)
                         {
-                            pthread_join(thread, NULL);
+                            if (thread != 0)
+                                pthread_join(thread, NULL);
                         }
                         if (bossThreadHandle != 0) {
                             pthread_join(bossThreadHandle, NULL);
                         }
+
+                        for (auto data : escortData)
+                            if (data) delete data;
+                        escortData.clear();
+                        escortThreads.clear();
+                        if (bossData) {
+                            delete bossData;
+                            bossData = nullptr;
+                        }
+                        if (boss) {
+                            delete boss;
+                            boss = nullptr;
+                        }
                     }
 
                     gameRunning = false;
-
-                    if (bossMode && boss)
-                    {
-                        for (auto data : escortData)
-                            delete data;
-                        delete bossData;
-                        delete boss;
-                    }
                     pthread_mutex_destroy(&playerMutex);
+                    stopMusic();
                 }
                 else if (tecla == 'p' || tecla == 'P')
                 {
@@ -1642,18 +1673,60 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                     if (pthread_create(&playerThreadHandle, NULL, &playerThread, &playerData) != 0) {
                         cerr << "Error recreando hilo del jugador tras pausa" << endl;
                         gameRunning = false;
+                        if (bossMode && boss)
+                        {
+                            boss->destroy();
+                            for (auto thread : escortThreads)
+                            {
+                                if (thread != 0)
+                                    pthread_join(thread, NULL);
+                            }
+                            if (bossThreadHandle != 0) {
+                                pthread_join(bossThreadHandle, NULL);
+                            }
+
+                            for (auto data : escortData)
+                                if (data) delete data;
+                            escortData.clear();
+                            escortThreads.clear();
+                            if (bossData) {
+                                delete bossData;
+                                bossData = nullptr;
+                            }
+                            if (boss) {
+                                delete boss;
+                                boss = nullptr;
+                            }
+                        }
+                        pthread_mutex_destroy(&playerMutex);
+                        stopMusic();
                     }
                 }
                 else if (tecla == 'm' || tecla == 'M')
                 {
                     if (bossMode && boss)
                     {
+                        boss->destroy();
                         for (auto thread : escortThreads)
                         {
-                            pthread_join(thread, NULL);
+                            if (thread != 0)
+                                pthread_join(thread, NULL);
                         }
                         if (bossThreadHandle != 0) {
                             pthread_join(bossThreadHandle, NULL);
+                        }
+
+                        for (auto data : escortData)
+                            if (data) delete data;
+                        escortData.clear();
+                        escortThreads.clear();
+                        if (bossData) {
+                            delete bossData;
+                            bossData = nullptr;
+                        }
+                        if (boss) {
+                            delete boss;
+                            boss = nullptr;
                         }
                     }
 
@@ -1665,39 +1738,40 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                         showScoresScreen();
                     }
                     gameRunning = false;
-
-                    if (bossMode && boss)
-                    {
-                        for (auto data : escortData)
-                            delete data;
-                        delete bossData;
-                        delete boss;
-                    }
                     pthread_mutex_destroy(&playerMutex);
+                    stopMusic();
                 }
                 else if (tecla == 'q' || tecla == 'Q')
                 {
                     if (bossMode && boss)
                     {
+                        boss->destroy();
                         for (auto thread : escortThreads)
                         {
-                            pthread_join(thread, NULL);
+                            if (thread != 0)
+                                pthread_join(thread, NULL);
                         }
                         if (bossThreadHandle != 0) {
                             pthread_join(bossThreadHandle, NULL);
                         }
+
+                        for (auto data : escortData)
+                            if (data) delete data;
+                        escortData.clear();
+                        escortThreads.clear();
+                        if (bossData) {
+                            delete bossData;
+                            bossData = nullptr;
+                        }
+                        if (boss) {
+                            delete boss;
+                            boss = nullptr;
+                        }
                     }
 
                     gameRunning = false;
-
-                    if (bossMode && boss)
-                    {
-                        for (auto data : escortData)
-                            delete data;
-                        delete bossData;
-                        delete boss;
-                    }
                     pthread_mutex_destroy(&playerMutex);
+                    stopMusic();
                 }
             }
         }

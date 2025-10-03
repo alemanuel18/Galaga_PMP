@@ -1293,18 +1293,80 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                         enemySystem.createEnemies(enemyCount);
                     }
                 }
-
-            // Colisión directa con la nave
-            if (enemySystem.checkCollisionWithPlayer(naveX, naveY))
-            {
-                vidas--;
-                if (vidas <= 0)
+                
+                // Colisión directa con la nave
+                if (enemySystem.checkCollisionWithPlayer(naveX, naveY))
                 {
+                    vidas--;
+                    if (vidas <= 0)
+                    {
+                        inGame = false;
+                        pthread_join(playerThreadHandle, NULL);
+                        setColor(12);
+                        gotoxy(30, 12);
+                        cout << "¡COLISIÓN DIRECTA!";
+                        gotoxy(35, 14);
+                        cout << "GAME OVER";
+                        setColor(7);
+                        sleep(3);
+                        if (score > 0)
+                        {
+                            string playerName = getPlayerName();
+                            highScores.push_back({playerName, score});
+                            saveScores();
+                            showScoresScreen();
+                        }
+                        gameRunning = false;
+                        pthread_mutex_destroy(&playerMutex);
+                        continue;
+                    }
+                    else
+                    {
+                        showLifeLostEffect(naveX, naveY, vidas);
+                    }
+                }
+
+                // Verificar colisión con disparos enemigos
+                if (checkEnemyShotCollision(enemySystem, naveX, naveY, &vidas))
+                {
+                    if (vidas <= 0)
+                    {
+                        inGame = false;
+                        pthread_join(playerThreadHandle, NULL);
+                        setColor(12);
+                        gotoxy(30, 12);
+                        cout << "¡SIN VIDAS!";
+                        gotoxy(35, 14);
+                        cout << "GAME OVER";
+                        setColor(7);
+                        sleep(3);
+                        if (score > 0)
+                        {
+                            string playerName = getPlayerName();
+                            highScores.push_back({playerName, score});
+                            saveScores();
+                            showScoresScreen();
+                        }
+                        gameRunning = false;
+                        pthread_mutex_destroy(&playerMutex);
+                        continue;
+                    }
+                    else
+                    {
+                        // Mostrar efecto de pérdida de vida
+                        showLifeLostEffect(naveX, naveY, vidas);
+                    }
+                }
+
+                // Invasión completada
+                if (enemySystem.checkInvasion())
+                {
+                    vidas = 0; // Invasión = pérdida automática
                     inGame = false;
                     pthread_join(playerThreadHandle, NULL);
                     setColor(12);
-                    gotoxy(30, 12);
-                    cout << "¡COLISIÓN DIRECTA!";
+                    gotoxy(28, 12);
+                    cout << "¡INVASIÓN COMPLETADA!";
                     gotoxy(35, 14);
                     cout << "GAME OVER";
                     setColor(7);
@@ -1320,311 +1382,249 @@ void runGame(int enemyCount, int wavesToWin, const string& musicFile, int gameMo
                     pthread_mutex_destroy(&playerMutex);
                     continue;
                 }
-                else
-                {
-                    showLifeLostEffect(naveX, naveY, vidas);
-                }
-            }
 
-            // Verificar colisión con disparos enemigos
-            if (checkEnemyShotCollision(enemySystem, naveX, naveY, &vidas))
-            {
-                if (vidas <= 0)
+                clearScreen();
+                drawFrame();
+
+                if (bossMode && boss && boss->getIsActive())
                 {
-                    inGame = false;
-                    pthread_join(playerThreadHandle, NULL);
-                    setColor(12);
-                    gotoxy(30, 12);
-                    cout << "¡SIN VIDAS!";
-                    gotoxy(35, 14);
-                    cout << "GAME OVER";
-                    setColor(7);
-                    sleep(3);
-                    if (score > 0)
+                    boss->drawHealthBar();
+                }
+
+                setColor(14);
+                gotoxy(5, 1);
+                if (bossMode && boss)
+                {
+                    if (boss->getAliveEscortsCount() > 0)
                     {
-                        string playerName = getPlayerName();
-                        highScores.push_back({playerName, score});
-                        saveScores();
-                        showScoresScreen();
+                        gotoxy(15, 1);
+                        cout << "ESCOLTAS: " << boss->getAliveEscortsCount();
                     }
-                    gameRunning = false;
-                    pthread_mutex_destroy(&playerMutex);
-                    continue;
                 }
                 else
                 {
-                    // Mostrar efecto de pérdida de vida
-                    showLifeLostEffect(naveX, naveY, vidas);
+                    cout << "ENEMIGOS: " << enemySystem.size();
                 }
-            }
 
-            // Invasión completada
-            if (enemySystem.checkInvasion())
-            {
-                vidas = 0; // Invasión = pérdida automática
-                inGame = false;
-                pthread_join(playerThreadHandle, NULL);
-                setColor(12);
-                gotoxy(28, 12);
-                cout << "¡INVASIÓN COMPLETADA!";
-                gotoxy(35, 14);
-                cout << "GAME OVER";
+                setColor(14);
+                gotoxy(28, 1);
+                cout << "PUNTAJE: " << score;
+
+                setColor(11);
+                gotoxy(60, 1);
+                cout << "VIDAS: ";
+                for (int i = 0; i < vidas; i++)
+                {
+                    cout << "♥";
+                }
+                for (int i = vidas; i < 3; i++)
+                {
+                    cout << "♡";
+                }
+
                 setColor(7);
-                sleep(3);
-                if (score > 0)
+                gotoxy(46, 1);
+                if (bossMode)
                 {
-                    string playerName = getPlayerName();
-                    highScores.push_back({playerName, score});
-                    saveScores();
-                    showScoresScreen();
-                }
-                gameRunning = false;
-                pthread_mutex_destroy(&playerMutex);
-                continue;
-            }
-
-            clearScreen();
-            drawFrame();
-
-            if (bossMode && boss && boss->getIsActive())
-            {
-                boss->drawHealthBar();
-            }
-
-            setColor(14);
-            gotoxy(5, 1);
-            if (bossMode && boss)
-            {
-                if (boss->getAliveEscortsCount() > 0)
-                {
-                    gotoxy(15, 1);
-                    cout << "ESCOLTAS: " << boss->getAliveEscortsCount();
-                }
-            }
-            else
-            {
-                cout << "ENEMIGOS: " << enemySystem.size();
-            }
-
-            setColor(14);
-            gotoxy(28, 1);
-            cout << "PUNTAJE: " << score;
-
-            setColor(11);
-            gotoxy(60, 1);
-            cout << "VIDAS: ";
-            for (int i = 0; i < vidas; i++)
-            {
-                cout << "♥";
-            }
-            for (int i = vidas; i < 3; i++)
-            {
-                cout << "♡";
-            }
-
-            setColor(7);
-            gotoxy(46, 1);
-            if (bossMode)
-            {
-                cout << "JEFE FINAL";
-            }
-            else
-            {
-                cout << "OLEADA: " << (match + 1) << "/" << wavesToWin;
-            }
-
-            pthread_mutex_lock(&playerMutex);
-            setColor(11);
-            for (auto &d : disparos)
-            {
-                gotoxy(d.first, d.second);
-                cout << "|";
-            }
-            pthread_mutex_unlock(&playerMutex);
-
-            if (bossMode && boss && boss->getIsActive())
-            {
-                boss->draw();
-                boss->drawEscorts();
-                boss->drawAllShots();
-            }
-            else
-            {
-                enemySystem.drawEnemies();
-                enemySystem.drawAllEnemyShots();
-            }
-
-            pthread_mutex_lock(&playerMutex);
-            setColor(10);
-            gotoxy(naveX, naveY);
-            cout << "A";
-            pthread_mutex_unlock(&playerMutex);
-
-            setColor(11);
-            gotoxy(7, 22);
-            cout << "A/D: Mover - ESPACIO: Disparar - M: Terminar - Q: Salir - P: Pausa";
-
-            if (kbhit())
-            {
-                int tecla = getchLinux();
-
-                if (tecla == 'm' || tecla == 'M')
-                {
-                    inGame = false;
-                    pthread_join(playerThreadHandle, NULL);
-
-                    if (bossMode && boss)
-                    {
-                        for (auto thread : escortThreads)
-                        {
-                            pthread_join(thread, NULL);
-                        }
-                        pthread_join(bossThreadHandle, NULL);
-                    }
-
-                    if (score > 0)
-                    {
-                        string playerName = getPlayerName();
-                        highScores.push_back({playerName, score});
-                        saveScores();
-                        showScoresScreen();
-                    }
-                    gameRunning = false;
-
-                    if (bossMode && boss)
-                    {
-                        for (auto data : escortData)
-                            delete data;
-                        delete bossData;
-                        delete boss;
-                    }
-                    pthread_mutex_destroy(&playerMutex);
-                }
-                else if (tecla == 'q' || tecla == 'Q')
-                {
-                    inGame = false;
-                    pthread_join(playerThreadHandle, NULL);
-
-                    if (bossMode && boss)
-                    {
-                        for (auto thread : escortThreads)
-                        {
-                            pthread_join(thread, NULL);
-                        }
-                        pthread_join(bossThreadHandle, NULL);
-                    }
-
-                    gameRunning = false;
-
-                    if (bossMode && boss)
-                    {
-                        for (auto data : escortData)
-                            delete data;
-                        delete bossData;
-                        delete boss;
-                    }
-                    pthread_mutex_destroy(&playerMutex);
-                }
-                else if (tecla == 'p' || tecla == 'P')
-                {
-                    inGame = false;
-                    pthread_join(playerThreadHandle, NULL);
+                    cout << "JEFE FINAL";
                 }
                 else
                 {
-                    pthread_mutex_lock(&playerData.keyMutex);
-                    playerData.lastKey = tecla;
-                    playerData.hasNewKey = true;
-                    pthread_mutex_unlock(&playerData.keyMutex);
+                    cout << "OLEADA: " << (match + 1) << "/" << wavesToWin;
+                }
+
+                pthread_mutex_lock(&playerMutex);
+                setColor(11);
+                for (auto &d : disparos)
+                {
+                    gotoxy(d.first, d.second);
+                    cout << "|";
+                }
+                pthread_mutex_unlock(&playerMutex);
+
+                if (bossMode && boss && boss->getIsActive())
+                {
+                    boss->draw();
+                    boss->drawEscorts();
+                    boss->drawAllShots();
+                }
+                else
+                {
+                    enemySystem.drawEnemies();
+                    enemySystem.drawAllEnemyShots();
+                }
+
+                pthread_mutex_lock(&playerMutex);
+                setColor(10);
+                gotoxy(naveX, naveY);
+                cout << "A";
+                pthread_mutex_unlock(&playerMutex);
+
+                setColor(11);
+                gotoxy(7, 22);
+                cout << "A/D: Mover - ESPACIO: Disparar - M: Terminar - Q: Salir - P: Pausa";
+
+                if (kbhit())
+                {
+                    int tecla = getchLinux();
+
+                    if (tecla == 'm' || tecla == 'M')
+                    {
+                        inGame = false;
+                        pthread_join(playerThreadHandle, NULL);
+
+                        if (bossMode && boss)
+                        {
+                            for (auto thread : escortThreads)
+                            {
+                                pthread_join(thread, NULL);
+                            }
+                            pthread_join(bossThreadHandle, NULL);
+                        }
+
+                        if (score > 0)
+                        {
+                            string playerName = getPlayerName();
+                            highScores.push_back({playerName, score});
+                            saveScores();
+                            showScoresScreen();
+                        }
+                        gameRunning = false;
+
+                        if (bossMode && boss)
+                        {
+                            for (auto data : escortData)
+                                delete data;
+                            delete bossData;
+                            delete boss;
+                        }
+                        pthread_mutex_destroy(&playerMutex);
+                    }
+                    else if (tecla == 'q' || tecla == 'Q')
+                    {
+                        inGame = false;
+                        pthread_join(playerThreadHandle, NULL);
+
+                        if (bossMode && boss)
+                        {
+                            for (auto thread : escortThreads)
+                            {
+                                pthread_join(thread, NULL);
+                            }
+                            pthread_join(bossThreadHandle, NULL);
+                        }
+
+                        gameRunning = false;
+
+                        if (bossMode && boss)
+                        {
+                            for (auto data : escortData)
+                                delete data;
+                            delete bossData;
+                            delete boss;
+                        }
+                        pthread_mutex_destroy(&playerMutex);
+                    }
+                    else if (tecla == 'p' || tecla == 'P')
+                    {
+                        inGame = false;
+                        pthread_join(playerThreadHandle, NULL);
+                    }
+                    else
+                    {
+                        pthread_mutex_lock(&playerData.keyMutex);
+                        playerData.lastKey = tecla;
+                        playerData.hasNewKey = true;
+                        pthread_mutex_unlock(&playerData.keyMutex);
+                    }
                 }
             }
-        }
-        else
-        {
-            // Pausa
-            clearScreen();
-            drawFrame();
-            setColor(15);
-            gotoxy(30, 8);
-            cout << "JUEGO PAUSADO";
-            gotoxy(28, 10);
-            cout << "PUNTAJE: " << score;
-            setColor(14);
-            gotoxy(15, 14);
-            cout << "ESPACIO - Continuar jugando";
-            gotoxy(15, 16);
-            cout << "M - Terminar y guardar puntaje";
-            gotoxy(15, 18);
-            cout << "Q - Salir sin guardar";
-            setColor(13);
-            gotoxy(8, 21);
-            cout << "PUNTUACIÓN: Enemigo = +200pts, Escolta = +300pts";
-            gotoxy(8, 22);
-            cout << "Jefe = +500pts por golpe, Victoria = +2000pts";
-
-            if (kbhit())
+            else
             {
-                int tecla = getchLinux();
-                if (tecla == ' ')
+                // Pausa
+                clearScreen();
+                drawFrame();
+                setColor(15);
+                gotoxy(30, 8);
+                cout << "JUEGO PAUSADO";
+                gotoxy(28, 10);
+                cout << "PUNTAJE: " << score;
+                setColor(14);
+                gotoxy(15, 14);
+                cout << "ESPACIO - Continuar jugando";
+                gotoxy(15, 16);
+                cout << "M - Terminar y guardar puntaje";
+                gotoxy(15, 18);
+                cout << "Q - Salir sin guardar";
+                setColor(13);
+                gotoxy(8, 21);
+                cout << "PUNTUACIÓN: Enemigo = +200pts, Escolta = +300pts";
+                gotoxy(8, 22);
+                cout << "Jefe = +500pts por golpe, Victoria = +2000pts";
+
+                if (kbhit())
                 {
-                    inGame = true;
-                    pthread_create(&playerThreadHandle, NULL, &playerThread, &playerData);
-                }
-                else if (tecla == 'm' || tecla == 'M')
-                {
-                    if (bossMode && boss)
+                    int tecla = getchLinux();
+                    if (tecla == ' ')
                     {
-                        for (auto thread : escortThreads)
+                        inGame = true;
+                        pthread_create(&playerThreadHandle, NULL, &playerThread, &playerData);
+                    }
+                    else if (tecla == 'm' || tecla == 'M')
+                    {
+                        if (bossMode && boss)
                         {
-                            pthread_join(thread, NULL);
+                            for (auto thread : escortThreads)
+                            {
+                                pthread_join(thread, NULL);
+                            }
+                            pthread_join(bossThreadHandle, NULL);
                         }
-                        pthread_join(bossThreadHandle, NULL);
-                    }
 
-                    if (score > 0)
-                    {
-                        string playerName = getPlayerName();
-                        highScores.push_back({playerName, score});
-                        saveScores();
-                        showScoresScreen();
-                    }
-                    gameRunning = false;
-
-                    if (bossMode && boss)
-                    {
-                        for (auto data : escortData)
-                            delete data;
-                        delete bossData;
-                        delete boss;
-                    }
-                    pthread_mutex_destroy(&playerMutex);
-                }
-                else if (tecla == 'q' || tecla == 'Q')
-                {
-                    if (bossMode && boss)
-                    {
-                        for (auto thread : escortThreads)
+                        if (score > 0)
                         {
-                            pthread_join(thread, NULL);
+                            string playerName = getPlayerName();
+                            highScores.push_back({playerName, score});
+                            saveScores();
+                            showScoresScreen();
                         }
-                        pthread_join(bossThreadHandle, NULL);
+                        gameRunning = false;
+
+                        if (bossMode && boss)
+                        {
+                            for (auto data : escortData)
+                                delete data;
+                            delete bossData;
+                            delete boss;
+                        }
+                        pthread_mutex_destroy(&playerMutex);
                     }
-
-                    gameRunning = false;
-
-                    if (bossMode && boss)
+                    else if (tecla == 'q' || tecla == 'Q')
                     {
-                        for (auto data : escortData)
-                            delete data;
-                        delete bossData;
-                        delete boss;
+                        if (bossMode && boss)
+                        {
+                            for (auto thread : escortThreads)
+                            {
+                                pthread_join(thread, NULL);
+                            }
+                            pthread_join(bossThreadHandle, NULL);
+                        }
+
+                        gameRunning = false;
+
+                        if (bossMode && boss)
+                        {
+                            for (auto data : escortData)
+                                delete data;
+                            delete bossData;
+                            delete boss;
+                        }
+                        pthread_mutex_destroy(&playerMutex);
                     }
-                    pthread_mutex_destroy(&playerMutex);
                 }
             }
         }
-
-        this_thread::sleep_for(chrono::milliseconds(50));
+    this_thread::sleep_for(chrono::milliseconds(50));
     }
 }
 

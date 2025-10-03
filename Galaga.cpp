@@ -8,11 +8,13 @@
 #include <thread>
 #include <chrono>
 #include <string>
+#include <fstream>
+#include <sys/wait.h>
+#include <signal.h>
 #include "Pantalla.h"
 #include "Nave.h"
 #include "Enemigo.h"
 #include <pthread.h>
-#include <fstream>
 
 using namespace std;
 
@@ -1075,10 +1077,82 @@ void showLifeLostEffect(int naveX, int naveY, int vidasRestantes)
     cout << "                    ";
 }
 
+// ---------------- MÚSICA ----------------
+// Variables globales para la música
+pid_t musicPid = -1;
+string currentMusicFile = "";
+
+// Estructura para almacenar las rutas de música por dificultad
+struct MusicConfig {
+    string modo1 = "music/modo1.mp3";  // Música para modo fácil
+    string modo2 = "music/modo2.mp3";  // Música para modo medio
+    string modo3 = "music/modo3.mp3";  // Música para modo difícil
+    string menu = "music/menu.mp3";    // Música del menú
+    string jefe = "music/jefe.mp3";  // Música para el jefe del modo
+};
+
+MusicConfig musicConfig;
+
+// Función para detener la música actual
+void stopMusic() {
+    if (musicPid > 0) {
+        kill(musicPid, SIGTERM);
+        waitpid(musicPid, NULL, 0);
+        musicPid = -1;
+    }
+}
+
+// Función para reproducir música en loop
+void playMusic(const string& filename) {
+    // Detener música anterior si existe
+    stopMusic();
+    
+    // Verificar si el archivo existe
+    ifstream file(filename);
+    if (!file.good()) {
+        cerr << "Advertencia: No se encontró el archivo de música: " << filename << endl;
+        return;
+    }
+    file.close();
+    
+    currentMusicFile = filename;
+    
+    // Crear proceso hijo para reproducir música
+    musicPid = fork();
+    
+    if (musicPid == 0) {
+        // Proceso hijo: reproducir música en loop infinito
+        // Redirigir stderr y stdout a /dev/null para evitar mensajes
+        freopen("/dev/null", "w", stdout);
+        freopen("/dev/null", "w", stderr);
+        
+        // Intentar con mpg123 primero (mejor para MP3)
+        while (true) {
+            execlp("mpg123", "mpg123", "-q", filename.c_str(), NULL);
+            
+            // Si mpg123 no está disponible, intentar con ffplay
+            execlp("ffplay", "ffplay", "-nodisp", "-autoexit", "-loop", "0", 
+                   filename.c_str(), NULL);
+            
+            // Si ffplay tampoco está, intentar con cvlc
+            execlp("cvlc", "cvlc", "--play-and-exit", "--loop", 
+                   filename.c_str(), NULL);
+            
+            // Si nada funciona, salir
+            exit(1);
+        }
+    } else if (musicPid < 0) {
+        cerr << "Error: No se pudo crear proceso para música" << endl;
+    }
+}
+
 // ---------------- GAME LOOP ----------------
 
-void runGame(int enemyCount, int wavesToWin)
+void runGame(int enemyCount, int wavesToWin, const string& musicFile)
 {
+    //Reproducir música del modo seleccionado
+    playMusic(musicFile);
+
     bool gameRunning = true;
     bool inGame = true;
     int score = 0;
@@ -1416,6 +1490,8 @@ void runGame(int enemyCount, int wavesToWin)
 // ---------------- MENÚ PRINCIPAL ----------------
 void gameScreen()
 {
+    stopMusic(); // Detener música del menú
+
     // Pantalla inicial
     clearScreen();
     drawFrame();
@@ -1451,33 +1527,41 @@ void gameScreen()
 
     int enemyCount = 5;
     int wavesToWin = 5;
+    string musicFile;
 
     switch (gameMode)
     {
     case '1':
         enemyCount = 5;
         wavesToWin = 1; // proof
+        musicFile = musicConfig.modo1;
         break;
     case '2':
         enemyCount = 8;
         wavesToWin = 5;
+        musicFile = musicConfig.modo2;
         break;
     case '3':
         enemyCount = 10;
         wavesToWin = 5;
+        musicFile = musicConfig.modo3;
         break;
     default:
         enemyCount = 5;
         wavesToWin = 5;
+        musicFile = musicConfig.modo1;
         break;
     }
 
-    runGame(enemyCount, wavesToWin);
+    runGame(enemyCount, wavesToWin, musicFile);
+    playMusic(musicConfig.menu); // Reanudar música del menú
 }
 
 // Menú principal
 void showMainMenu()
 {
+    playMusic(musicConfig.menu); // Reproducir música del menú
+
     bool menuRunning = true;
     while (menuRunning)
     {
@@ -1562,14 +1646,28 @@ void showMainMenu()
             break;
         }
     }
+    stopMusic(); // Detener música al salir del menú
 }
 
 // ---------------- MAIN ----------------
-int main()
-{
+int main() {
+    // Cargar puntajes al inicio
+    loadScores();
+    
+    // Manejar señales para limpiar la música al salir
+    signal(SIGINT, [](int) {
+        stopMusic();
+        showCursor();
+        exit(0);
+    });
+    
     hideCursor();
     showSplashScreen();
     showMainMenu();
     showCursor();
+    
+    // Detener música al salir
+    stopMusic();
+    
     return 0;
 }
